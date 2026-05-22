@@ -1,44 +1,45 @@
-# reviewer.py
-
-from openai import OpenAI
-from dotenv import load_dotenv
+from groq import Groq
+import json
 import os
+from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# Create Groq client
-client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    base_url="https://api.groq.com/openai/v1"
-)
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-def review_code(code):
+def review_code(code_snippet):
+
+    prompt = f"""
+You are an AI code reviewer.
+
+Analyze this code and return ONLY valid JSON:
+
+{{
+    "issue": "",
+    "severity": "",
+    "confidence": 0,
+    "suggestion": ""
+}}
+
+Code:
+{code_snippet}
+"""
 
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
-            {
-                "role": "system",
-                "content": """
-You are a senior software engineer and expert code reviewer.
-
-Review the given code carefully and provide:
-
-1. Bugs or issues
-2. Performance improvements
-3. Readability improvements
-4. Security concerns
-5. Best practices
-6. Final improved summary
-"""
-            },
-            {
-                "role": "user",
-                "content": code
-            }
-        ],
-        temperature=0.3
+            {"role": "user", "content": prompt}
+        ]
     )
 
-    return response.choices[0].message.content
+    content = response.choices[0].message.content
+
+    try:
+        return json.loads(content)
+    except:
+        return {
+            "issue": "Parsing error",
+            "severity": "Low",
+            "confidence": 20,
+            "suggestion": "Verify manually"
+        }
